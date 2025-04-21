@@ -1,0 +1,1115 @@
+---
+title: "2 Discrete random variable"
+author: "SUNC"
+date: "`r Sys.Date()`"
+output:
+  html_document:
+    mathjax: default
+    toc: yes
+    toc_depth: 3
+    toc_float:
+      collapsed: no
+      smooth_scroll: no
+  word_document:
+    toc: yes
+    toc_depth: '3'
+  pdf_document:
+    toc: yes
+    toc_depth: '3'
+    latex_engine: xelatex
+header-includes:
+- \usepackage{xeCJK}
+- \usepackage{fontspec}
+- \setCJKmainfont{微軟正黑體}
+- \XeTeXlinebreaklocale "zh"
+- \XeTeXlinebreakskip = 0pt plus 1pt
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+library(corrplot)
+library(ggplot2)
+library(tidyverse)
+```
+
+
+[chatgpt](https://chatgpt.com/share/67f8cba3-0e98-8003-ad1b-44369d30f924)
+
+A random variable \( Y \) is a function that maps outcomes from the sample space  
+\( S \) of a random experiment to real numbers.
+
+- If \( Y \) only takes integer values, it is called a **discrete random variable**.
+
+- The **probability mass function (PMF)** is denoted by \( P(Y = x),\ x \in \mathbb{N} \).
+
+- The **cumulative distribution function (CDF)** is denoted by \( P(Y \leq x),\ x \in \mathbb{N} \).
+
+- The **expectation** and **variance** of \( Y \) are denoted by \( E(Y) \) and \( \text{Var}(Y) \), respectively.
+
+  
+
+## **Statistic vs. Estimate**
+
+A **random sample** of size \( n \) from \( Y \) is denoted as:
+
+\[
+Y_1, Y_2, \dots, Y_n.
+\]
+
+- A **statistic** is any function of the sample, such as \( \bar{Y}_n \)
+  which estimates the population mean \( E(Y) \).
+
+- An **estimate** is a statistic used to infer the value of an unknown parameter.
+
+
+## **Example**
+
+- Example 2.1-3, *Hogg, Tanis and Zimmerman, 9th Edition*, p.44:  
+  Roll a fair four-sided die twice and let \( X \) be the maximum of the two outcomes.
+
+
+## **1 基於公正骰子的假設**
+
+  - \( P(X = k) = \frac{2k - 1}{16}, \quad k = 1, 2, 3, 4. \)
+  
+  - 期望值 (Expectation): \( E(X) = \frac{25}{8} \approx 3.125. \)
+    
+  - 變異數 (Variance): \( \text{Var}(X) = \frac{55}{64} \approx 0.8594,\ \text{SD}(X) \approx 0.927. \)
+  
+---
+
+## **2 樣本觀測與統計量**
+
+從此分佈抽取 \( n \) 個樣本 \( x_1, x_2, \dots, x_n \)，可以計算以下 **7 個統計量**：
+
+- **機率估計**： $\hat{P}(X = k) = \frac{1}{n} \sum_{i=1}^{n} I_{\{x_i = k\}}, \quad k = 1,2,3,4.$
+
+- **樣本平均 (Sample Mean)**：$\bar{x} = \frac{1}{n} \sum_{i=1}^{n} x_i.$
+
+- **樣本變異數 (Sample Variance)**：$s^2 = \frac{1}{n-1} \sum_{i=1}^{n} (x_i - \bar{x})^2.$
+
+- **卡方統計量 (Chi-Square Statistic)**：(綜合衡量機率估計與預期機率的差距)
+  \[
+  \chi^2 = \sum_{k=1}^{4} \frac{(o_k - E_k)^2}{E_k},
+  \]
+  
+  - \( o_k \) 是第 \( k \) 種結果的觀測次數 $n \hat{P}(X = k)$,
+  
+  - \( E_k \) 是第 \( k \) 種結果的期望次數 \( n P(X = k) \).
+
+
+```{r, echo=FALSE}
+par(mfrow=c(1,2))
+
+n <- 20
+dicewt <- c(1,1,1,1)  # 骰子權重
+dicep <- prop.table(dicewt)   # 骰子機率
+p0.ss <- rep(1/16,length(dicewt)^2)  # Sample Space H0:公正骰子所投的結果
+p0.max <- (2*(1:4)-1)/16 # Max H0:公正骰子所投的結果
+
+ds <- as.data.frame(matrix(sample(1:4, 2*n, replace=TRUE, prob=dicep), ncol=2))
+colnames(ds) <- c("Var1", "Var2")  # 設定欄位名稱
+
+# 使用 transform() 將變數轉為 factor，確保所有可能組合都出現，並加入 Max 欄位
+ds <- transform(ds, Var1 = factor(Var1, levels = 1:4), 
+                     Var2 = factor(Var2, levels = 1:4), 
+                     Max  = pmax(as.numeric(Var1), as.numeric(Var2)))
+
+fq.ss <- as.vector(table(ds$Var1, ds$Var2))  
+plot(prop.table(fq.ss), type = "h", ylab = "", xlab = "Sample Space",
+     ylim = c(0, 0.1), xaxt = "n", col = "#0000FF")
+abline(h=p0.ss[1],col="#FF0000")
+chistat.ss <- round(sum((fq.ss-n*p0.ss)^2/(n*p0.ss)),4)
+legend("topright",c("Avg = ?","Sdv = ?",paste("Diff =",chistat.ss)))
+# chisq.test(fq.ss,p=p0.ss) # 卡方適合度檢定
+
+# r.v. X的各種各能的相對頻率
+fq.max <- table(factor(ds$Max,levels=1:4))
+plot(p0.max,type="h",lwd=2,xlim=c(0,length(dicewt))+0.5,ylim=c(0,1),ylab="",col="#FF0000",xlab="Max")
+points(prop.table(fq.max),type="h",lwd=10,col="#0000FF50")
+chistat.max <- sum((fq.max-n*p0.max)^2/(n*p0.max))
+legend("topright",
+       paste(c("Avg =","Sdv =","Diff =" ),
+             round(c(mean(ds$Max),sd(ds$Max),chistat.max),4)))
+# chisq.test(table(ds$Max),p=p0.max) # 卡方適合度檢定
+
+mtext(paste("Sample Size: n =", n), outer=TRUE, line=-2)
+mtext(paste(c("Dice Prob = (",paste(dicep,collapse=", "),")"),collapse=""), outer=TRUE, line=-1)
+```
+
+- 先撰寫一個 視覺化版本（非互動式），觀察樣本數變化時，
+模擬統計量（如平均、標準差）與理論值之間的 誤差趨勢。
+
+- 將上述內容擴充為 Shiny App 的互動版本，讓使用者可以自由調整**樣本數**與**骰子權重**，
+並即時觀察絕對差的變化。
+
+
+---
+
+## **3 統計量也是隨機變數**
+
+- \( Y_1, \cdots, Y_n \) is a random sample of \( Y \). Hence, \( h(Y_1, \cdots, Y_n) \) is a random variable,  
+  where \( h \) is a function that maps the sample to a real number.
+
+  - \( \hat{P}(X = k) = \frac{1}{n} \sum_{i=1}^{n} I_{\{X_i = k\}}, \quad k = 1, 2, 3, 4. \)
+
+  - \( \bar{X} = \frac{1}{n} \sum_{i=1}^{n} X_i. \)
+
+  - \( S^2 = \frac{1}{n-1} \sum_{i=1}^{n} (X_i - \bar{X})^2. \)
+
+
+```{r}
+p0.max <- (2*(1:4)-1)/16 # Max H0:公正骰子所投的結果
+
+simulate_max_summary <- function(n = 100, dicewt = c(1, 1, 1, 1), seed = NULL) {
+  if (!is.null(seed)) set.seed(seed)
+  dicep <- prop.table(dicewt)
+
+  ds <- as.data.frame(matrix(sample(1:4, 2 * n, replace = TRUE, prob = dicep), ncol = 2))
+  colnames(ds) <- c("Var1", "Var2")
+  ds$Max <- pmax(ds$Var1, ds$Var2)
+
+  ds$max_mean <- NA
+  ds$max_var  <- NA
+  ds$max_sd   <- NA
+  ds$max_1 <- NA
+  ds$max_2 <- NA
+  ds$max_3 <- NA
+  ds$max_4 <- NA
+
+  for (i in 1:n) {
+    current <- ds$Max[1:i]
+    ds$max_mean[i] <- mean(current)
+    ds$max_var[i]  <- if (i > 1) var(current) else NA
+    ds$max_sd[i]   <- if (i > 1) sd(current)  else NA
+
+    fq <- table(factor(current, levels = 1:4))
+    ds$max_1[i] <- fq[1] / i
+    ds$max_2[i] <- fq[2] / i
+    ds$max_3[i] <- fq[3] / i
+    ds$max_4[i] <- fq[4] / i
+  }
+
+  return(ds)
+}
+
+# Example usage and plotting
+result <- simulate_max_summary(n = 500, dicewt = c(1, 1, 1, 1), seed = 123)
+
+par(mfrow = c(2, 1), mai=c(0.6, 0.8, 0.1, 0.2))
+
+matplot(1:nrow(result), result[, c("max_1", "max_2", "max_3", "max_4")],
+        type = "l", lty = 1, lwd = 2, xlim=c(2,nrow(result)), ylim = c(0,0.8), 
+        col = adjustcolor(c("red", "blue", "darkgreen", "orange"), alpha.f = 0.6),
+        ylab = "Relative Frequency", xlab = "Sample Size")
+
+# 加上理論機率的虛線
+p_theory <- p0.max
+for (i in 1:4) {
+  abline(h = p_theory[i], col = adjustcolor(c("red", "blue", "darkgreen", "orange")[i], alpha.f = 0.8), lty = 2)
+}
+
+legend("topright", legend = paste("Max =", 4:1),
+       col = rev(adjustcolor(c("red", "blue", "darkgreen", "orange"), alpha.f = 0.6)), lty = 1)
+
+
+plot(result$max_mean, type = "l", col = "blue", ylim = c(2.5, 3.5), xlim=c(2,nrow(result)),
+     ylab = "Sample Mean", xlab = "")
+abline(h = 25 / 8, col = "red", lty = 2)
+
+plot(result$max_var, type = "l", col = "darkgreen", ylim = c(0.3, 1.2),xlim=c(2,nrow(result)),
+     ylab = "Sample Variance", xlab = "")
+abline(h = 55 / 64, col = "red", lty = 2)
+
+plot(result$max_sd, type = "l", col = "purple", ylim = c(0.3, 1.2),xlim=c(2,nrow(result)),
+     ylab = "Sample SD", xlab = "Sample Size")
+abline(h = sqrt(55 / 64), col = "red", lty = 2)
+
+```
+
+```{r}
+simulate_max_summary <- function(n = 100, dicewt = c(1, 1, 1, 1), r = 200, seed = NULL) {
+  if (!is.null(seed)) set.seed(seed)
+  dicep <- prop.table(dicewt)
+
+  # 初始化儲存 r 次模擬的結果列表
+  result_list <- vector("list", r)
+
+  for (rep in 1:r) {
+    ds <- as.data.frame(matrix(sample(1:4, 2 * n, replace = TRUE, prob = dicep), ncol = 2))
+    colnames(ds) <- c("Var1", "Var2")
+    ds$Max <- pmax(ds$Var1, ds$Var2)
+
+    # 初始化欄位
+    ds$max_mean <- NA
+    ds$max_var  <- NA
+    ds$max_sd   <- NA
+    ds$max_1 <- NA
+    ds$max_2 <- NA
+    ds$max_3 <- NA
+    ds$max_4 <- NA
+
+    for (i in 1:n) {
+      current <- ds$Max[1:i]
+      ds$max_mean[i] <- mean(current)
+      ds$max_var[i]  <- if (i > 1) var(current) else NA
+      ds$max_sd[i]   <- if (i > 1) sd(current)  else NA
+
+      fq <- table(factor(current, levels = 1:4))
+      ds$max_1[i] <- fq[1] / i
+      ds$max_2[i] <- fq[2] / i
+      ds$max_3[i] <- fq[3] / i
+      ds$max_4[i] <- fq[4] / i
+    }
+
+    result_list[[rep]] <- ds
+  }
+
+  return(result_list)
+}
+
+```
+
+- Usually, it is not easy to derive the distribution of \( h(Y_1, \cdots, Y_n) \), even if we know the distribution of \( Y \).
+
+- If it is not feasible to derive the distribution analytically, we can approximate it by repeating the sampling process \( n_rep \) times, namely generating \( n_rep \) values of \( h(Y_1, \cdots, Y_n) \).
+
+```{r}
+suppressPackageStartupMessages({
+  library(ggplot2)
+  library(dplyr)
+  library(tidyr)
+  library(purrr)
+  library(tibble)
+  library(forcats)
+  library(stringr)
+  library(readr)
+  library(lubridate)
+})
+
+
+# 理論機率（公正骰子取兩次最大值）
+p0.max <- (2 * (1:4) - 1) / 16
+mean_theory <- 25 / 8
+var_theory <- 55 / 64
+sd_theory <- sqrt(var_theory)
+
+# 模擬函數（略作修改，回傳tibble）
+simulate_max_summary <- function(n = 100, dicewt = c(1, 1, 1, 1)) {
+  dicep <- prop.table(dicewt)
+  ds <- tibble(
+    Var1 = sample(1:4, n, replace = TRUE, prob = dicep),
+    Var2 = sample(1:4, n, replace = TRUE, prob = dicep)
+  )
+  ds <- ds %>% mutate(Max = pmax(Var1, Var2))
+
+  result <- tibble(
+    SampleSize = 1:n,
+    max_mean = NA_real_,
+    max_var  = NA_real_,
+    max_sd   = NA_real_,
+    max_1 = NA_real_,
+    max_2 = NA_real_,
+    max_3 = NA_real_,
+    max_4 = NA_real_
+  )
+
+  for (i in 1:n) {
+    current <- ds$Max[1:i]
+    fq <- table(factor(current, levels = 1:4))
+    result$max_mean[i] <- mean(current)
+    result$max_var[i]  <- if (i > 1) var(current) else NA_real_
+    result$max_sd[i]   <- if (i > 1) sd(current)  else NA_real_
+    result$max_1[i] <- fq[1] / i
+    result$max_2[i] <- fq[2] / i
+    result$max_3[i] <- fq[3] / i
+    result$max_4[i] <- fq[4] / i
+  }
+
+  return(result)
+}
+
+
+n_rep <- 80
+n <- 100
+sim_all <- map_dfr(1:n_rep, ~simulate_max_summary(n), .id = "Rep") %>%
+  filter(SampleSize > 10)
+
+
+# 將資料整形為長格式
+sim_long <- sim_all %>%
+  pivot_longer(cols = starts_with("max_"), names_to = "Metric", values_to = "Value") %>%
+  mutate(Metric = factor(Metric, levels = c("max_1", "max_2", "max_3", "max_4", "max_mean", "max_var", "max_sd")))
+
+# 繪圖：相對頻率 (max_1~max_4)
+sim_long %>%
+  filter(Metric %in% c("max_1", "max_2", "max_3", "max_4")) %>%
+  ggplot(aes(x = SampleSize, y = Value, group = Rep)) +
+  geom_line(alpha = 0.3, color = "steelblue") +
+  facet_wrap(~ Metric, ncol = 2) +
+  geom_hline(data = tibble(
+      Metric = paste0("max_", 1:4),
+      yintercept = p0.max
+    ),
+    aes(yintercept = yintercept), linetype = "dashed", color = "red") +
+  labs(title = "Convergence of Relative Frequencies", y = "Relative Frequency", x = "Sample Size") +
+  theme_minimal()
+
+
+# 建立理論值資料表
+theory_df <- tibble(
+  Metric = c("max_mean", "max_var", "max_sd"),
+  Theory = c(mean_theory, var_theory, sd_theory)
+)
+
+# 繪圖：合併為一張
+sim_long %>%
+  filter(Metric %in% c("max_mean", "max_var", "max_sd")) %>%
+  ggplot(aes(x = SampleSize, y = Value, group = Rep)) +
+  geom_line(alpha = 0.3, color = "steelblue") +
+  facet_wrap(~ Metric, scales = "free_y", ncol = 1,
+             labeller = as_labeller(c(
+               max_mean = "Sample Mean",
+               max_var = "Sample Variance",
+               max_sd = "Sample SD"
+             ))) +
+  geom_hline(data = theory_df, aes(yintercept = Theory), 
+             color = "red", linetype = "dashed") +
+  labs(title = "Convergence of Sample Statistics",
+       y = "Value", x = "Sample Size") +
+  theme_minimal()
+```
+
+
+
+### **3.1 觀察樣本數變化時的機率估計統計量**
+
+- For a continuous statistic \( h(Y_1, \cdots, Y_n) \), histograms and boxplots serve as useful tools for exploring its distributional properties and potential patterns.
+
+以下是在$n = 50, 100, 500, 1000$ 時，生成上述4個機率估計、樣本平均、樣本變異數、樣本標準差，共 $n\_rep = 1000$ 筆。每一筆或每一列的值，皆來自相同模擬數據所產生。
+
+
+```{r, echo=FALSE}
+p0.max <- (2*(1:4)-1)/16 # 理論機率：Max 的分布（公正骰）
+
+f <- function(n,dicewt){
+  # n <- 20
+  # dicewt <- c(1,1,1,1)  # 骰子權重
+  dicep <- prop.table(dicewt)   # 骰子機率
+  p0.ss <- 1/rep(length(dicewt)^2,length(dicewt)^2)  # Sample Space H0:公正骰子
+  
+  # 生成數據並轉換為 data.frame
+  ds <- as.data.frame(matrix(sample(1:4, 2*n, replace=TRUE, prob=dicep), ncol=2))
+  colnames(ds) <- c("Var1", "Var2") 
+  ds$Max <- pmax(ds$Var1, ds$Var2)
+  
+  
+  # 計算完整的 Sample Space 相對頻率
+  fq.ss <- as.vector(table(
+    factor(ds$Var1, levels = 1:4),
+    factor(ds$Var2, levels = 1:4)
+  ))
+  chistat.ss <- sum((fq.ss - n * p0.ss)^2 / (n * p0.ss))
+  # chisq.test(fq.ss, p = p0.ss) # 卡方適合度檢定
+  
+  # 計算最大值X的相對頻率
+  fq.max <- table(factor(ds$Max,levels=1:4))
+  fq.max.rel <- as.numeric(prop.table(fq.max))
+  chistat.max <- sum((fq.max-n*p0.max)^2/(n*p0.max))
+  # chisq.test(fq.max, p = p0.max) # 卡方適合度檢定
+
+  return(c(
+    n = n,
+    max_1 = fq.max.rel[1],
+    max_2 = fq.max.rel[2],
+    max_3 = fq.max.rel[3],
+    max_4 = fq.max.rel[4],
+    max_mean = mean(ds$Max),
+    max_var  = var(ds$Max),
+    max_sd   = sd(ds$Max)
+    # chistat_ss = chistat.ss,
+    # chistat_max = chistat.max
+  ))
+}
+
+set.seed(1234)
+n_rep <- 1000
+dicewt <- c(1,1,1,1)
+df_stat <- data.frame(rbind(
+  t(replicate(n_rep,f(50,dicewt))),
+  t(replicate(n_rep,f(100,dicewt))),
+  t(replicate(n_rep,f(500,dicewt))),
+  t(replicate(n_rep,f(1000,dicewt)))))
+
+# df_stat <- bind_rows(
+#   bind_rows(replicate(n_rep, f(20, dicewt), simplify = FALSE)),
+#   bind_rows(replicate(n_rep, f(100, dicewt), simplify = FALSE)),
+#   bind_rows(replicate(n_rep, f(500, dicewt), simplify = FALSE)),
+#   bind_rows(replicate(n_rep, f(500, dicewt), simplify = FALSE))
+# )
+```
+
+
+```{r echo=FALSE}
+str(df_stat)
+```
+
+```{r}
+p0.max <- (2 * (1:4) - 1) / 16
+names(p0.max) <- paste0("max_", 1:4)  # 對應欄位名稱
+
+# 繪圖
+df_stat %>%
+  pivot_longer(cols = starts_with("max_"), names_to = "MaxCategory", values_to = "Frequency") %>%
+  filter(MaxCategory %in% c("max_1", "max_2", "max_3", "max_4")) %>%
+  ggplot(aes(x = factor(n), y = Frequency, fill = MaxCategory, color = MaxCategory)) +
+  geom_boxplot(alpha = 0.7, outlier.shape = NA) +
+  geom_jitter(width = 0.1, alpha = 0.05, size = 0.7) +
+  geom_hline(data = data.frame(MaxCategory = names(p0.max), y = p0.max),
+             aes(yintercept = y, color = MaxCategory), linetype = "dashed", linewidth = 0.6) +
+  labs(title = "Boxplot of Relative Frequencies with Raw Points and Theoretical Lines",
+       x = "Sample Size (n)", y = "Relative Frequency") +
+  theme_minimal()
+```
+
+- **Weak Law of Large Numbers (WWLN)**
+  Let \( Y_1, Y_2, \ldots \) be i.i.d. random variables with \( E(Y) < \infty \).  
+Then for any \( \varepsilon > 0 \),
+\[
+\lim_{n \to \infty} P\left( \left| \bar{Y}_n - E(Y) \right| \geq \varepsilon \right) = 0,
+\]
+denoted by 
+\[
+  \bar{Y}_n \xrightarrow{p} E(Y).
+\]
+
+- **Properties of the Sample Mean**
+  \( E(\bar{Y}_n) = E(Y) \) (unbiased estimator) and \( \text{Var}(\bar{Y}_n) = \frac{1}{n}\text{Var}(Y) \).
+  
+  - \(\hat{p}_k = \frac{1}{n} \sum_{i=1}^{n} I_{\{X_i = k\}}\xrightarrow{p} P(X = k).\) (for \(k = 1, 2, 3, 4\))
+  
+  - \(\text{Var}(\hat{p}_k) = \frac{1}{n} p_k (1 - p_k)\).
+  
+
+```{r}
+library(tidyverse)
+
+# 長格式
+df_long <- df_stat %>%
+  pivot_longer(cols = starts_with("max_"), names_to = "MaxCategory", values_to = "Frequency") %>%
+  filter(MaxCategory %in% paste0("max_", 1:4))
+
+# 計算每個組別的 mu, sigma
+mu_sd <- df_long %>%
+  group_by(n, MaxCategory) %>%
+  summarise(mu = mean(Frequency), sigma = sd(Frequency), .groups = "drop")
+
+# 建立正態密度資料（用 expand.grid + dnorm）
+density_df <- mu_sd %>%
+  mutate(xmin = mu - 4 * sigma,
+         xmax = mu + 4 * sigma) %>%
+  rowwise() %>%
+  mutate(x = list(seq(xmin, xmax, length.out = 200)),
+         y = list(dnorm(x, mean = mu, sd = sigma))) %>%
+  unnest(c(x, y))
+
+# 理論線
+p0.df <- tibble(
+  MaxCategory = paste0("max_", 1:4),
+  Theory = (2 * (1:4) - 1) / 16
+)
+
+# 繪圖
+ggplot(df_long, aes(x = Frequency)) +
+  geom_histogram(aes(y = after_stat(density)), bins = 25,
+                 fill = "lightblue", color = "black", # ← 移除邊界線，沒有間距,
+                 alpha = 0.7, position = "identity") +
+  geom_line(data = density_df, aes(x = x, y = y, color = MaxCategory), linewidth = 0.5, alpha=0.5, inherit.aes = FALSE) +
+  geom_vline(data = p0.df, aes(xintercept = Theory, color = MaxCategory),
+             linetype = "dashed", linewidth = 0.8, show.legend = FALSE) +
+  facet_grid(n ~ MaxCategory, scales = "free_x", labeller = label_both) +
+  labs(title = "Histogram with Normal Approximation by Sample Size",
+       x = "Relative Frequency", y = "Density") +
+  theme_minimal()
+```
+
+
+
+- **Central Limit Theorem (CLT)**:  
+  Let \( Y_1, Y_2, \cdots \) be i.i.d. random variables with \( E(Y) < \infty \) and \( \text{Var}(Y) < \infty \). Then, for all \( z \in \mathbb{R} \),
+  \[
+  \lim_{n \rightarrow \infty} P\left( \frac{\sqrt{n}(\bar{Y}_n - E(Y))}{\sqrt{\text{Var}(Y)}} \leq z \right) = \Phi(z),
+  \]
+  which is is often denoted as:
+  \[
+  \frac{\sqrt{n}(\bar{Y}_n - E(Y))}{\sqrt{\text{Var}(Y)}} \xrightarrow{d} N(0, 1).
+  \]
+
+- **Example:** By the CLT, we have:
+  \[
+  \frac{\sqrt{n}(\hat{p}_k - p_k)}{\sqrt{p_k(1 - p_k)}} \xrightarrow{d} N\left( 0, 1\right).  \tag{1}
+  \]  
+  
+  - That is, for large \( n \),
+  \[
+  \hat{p}_k \approx N\left( p_k, \, \frac{p_k(1 - p_k)}{n} \right)
+  \]
+
+  - \(n \hat{p}_k = \sum_{i=1}^{n} I_{\{X_i = k\}} \sim \text{Binomial}(n, p_k).\)
+  
+  - Moreover, \(\widehat{\text{Var}}(I_{\{X_i = k\}}) = \hat{p}_k (1 - \hat{p}_k) \xrightarrow{p} p_k (1 - p_k), \) by [Convergence of random variables](https://en.wikipedia.org/wiki/Convergence_of_random_variables). Then using [Slutsky's theorem](https://en.wikipedia.org/wiki/Slutsky%27s_theorem), this together with
+  \[
+  \sqrt{n}(\hat{p}_k  - p_k) \xrightarrow{d} N(0, p_k(1 - p_k))
+  \]
+  yields
+  \[
+  \frac{\sqrt{n}( \hat{p}_k - p_k )}{ \sqrt{ \hat{p}_k (1 - \hat{p}_k) } } \xrightarrow{d} N(0, 1).  \tag{2}
+  \]
+  
+  - The sample variance based on \( I_{\{X_i = k\}}, \ i = 1, \ldots, n \), is an unbiased estimator of the true variance \(\text{Var}(I_{\{X_i = k\}}) = p_k(1 - p_k). \) In contrast, 
+  \(\widehat{\text{Var}}(I_{\{X_i = k\}}) = \hat{p}_k (1 - \hat{p}_k) \) is a biased estimator, but it is **consistent**. Similarly, following the same reasoning as in Equation (2), we can derive an alternative version of the distributional convergence by substituting the population variance with the sample variance.
+  
+  
+```{r}
+library(tidyverse)
+
+for (k in 1:4) {
+  var_name <- paste0("max_", k)
+  z_theory <- paste0("z_theory_", k)
+  z_plugin <- paste0("z_plugin_", k)
+  
+  # 理論值標準化
+  df_stat[[z_theory]] <- sqrt(df_stat$n) * (df_stat[[var_name]] - p0.max[[var_name]]) /
+                         sqrt(p0.max[[var_name]] * (1 - p0.max[[var_name]]))
+  
+  # plug-in 標準化
+  df_stat[[z_plugin]] <- sqrt(df_stat$n) * (df_stat[[var_name]] - p0.max[[var_name]]) /
+                         sqrt(df_stat[[var_name]] * (1 - df_stat[[var_name]]))
+}
+
+
+library(tidyverse)
+
+# 整成長格式
+df_z_long <- df_stat %>%
+  pivot_longer(
+    cols = starts_with("z_"),
+    names_to = c("method", "max_k"),
+    names_pattern = "z_(theory|plugin)_(\\d)",
+    values_to = "z_value"
+  ) %>%
+  mutate(
+    n = as.factor(n),
+    method = if_else(method == "theory", "Z: Theoretical", "Z: Plug-in"),
+    max_k = factor(paste0("max_", max_k), levels = paste0("max_", 1:4))
+  )
+
+plot_each_max_k <- function(max_k_label) {
+  df_z_long %>%
+    filter(max_k == max_k_label, is.finite(z_value)) %>%  # 移除 -Inf, Inf, NaN
+    ggplot(aes(x = z_value)) +
+    geom_histogram(
+      aes(y = after_stat(density)),
+      bins = 10, fill = "skyblue", color = "white", alpha = 0.7
+    ) +
+    stat_function(
+      fun = dnorm, args = list(mean = 0, sd = 1),
+      color = "red", linetype = "dashed", linewidth = 0.8
+    ) +
+    facet_grid(rows = vars(n), cols = vars(method)) +
+    coord_cartesian(xlim = c(-3, 3)) +
+    labs(
+      title = paste("Standardized Z for", max_k_label),
+      x = "Z-value", y = "Density"
+    ) +
+    theme_minimal() +
+    theme(strip.text = element_text(size = 10))
+}
+
+```
+
+```{r}
+plot_each_max_k("max_1")
+# plot_each_max_k("max_2")
+# plot_each_max_k("max_3")
+# plot_each_max_k("max_4")
+```
+
+
+```{r}
+library(dplyr)
+library(tidyr)
+
+# Shapiro-Wilk 檢定
+shapiro_results <- df_z_long %>%
+  filter(is.finite(z_value)) %>%  # 移除 -Inf, Inf, NA
+  group_by(n, max_k, method) %>%
+  summarise(
+    p_value = tryCatch(shapiro.test(z_value)$p.value, error = function(e) NA),
+    W = tryCatch(shapiro.test(z_value)$statistic, error = function(e) NA),
+    .groups = "drop"
+  )
+
+# 分別建立 max_1 ~ max_4 四張表，顯示小數點 4 位並加 * 標記顯著
+for (k in 1:4) {
+  max_label <- paste0("max_", k)
+  
+  cat("\n### Shapiro-Wilk p-values for", max_label, "\n\n")
+  
+  table_k <- shapiro_results %>%
+    filter(max_k == max_label) %>%
+    select(n, method, p_value) %>%
+    pivot_wider(names_from = method, values_from = p_value) %>%
+    mutate(across(
+      where(is.numeric),
+      ~ ifelse(. < 0.05, paste0(format(round(., 4), nsmall = 4), "*"),
+                      format(round(., 4), nsmall = 4))
+    ))
+  
+  print(table_k)
+}
+
+```
+
+
+### **3.2 聯合分佈、相關係數**
+
+- Marginal Distribution
+
+- Order Statistics
+
+```{r message=FALSE, warning=FALSE, error=FALSE}
+library(GGally)
+library(ggplot2)
+library(dplyr)
+
+# 整理資料
+df_plot <- df_stat %>%
+  select(n, max_1, max_2, max_3, max_4) %>%
+  mutate(n = factor(n))
+
+# 繪圖（2x2、無 legend、n = xxx 格式）
+ggparcoord(
+  data = df_plot,
+  columns = 2:5,
+  groupColumn = 1,
+  scale = "globalminmax",
+  alphaLines = 0.02,
+  showPoints = FALSE
+) +
+  facet_wrap(
+    ~ n,
+    nrow = 2,
+    labeller = labeller(n = function(x) paste0("n = ", x))
+  ) +
+  labs(
+    title = "Parallel Coordinates of max_1 to max_4 (by n)",
+    x = "Max Category", y = "Relative Frequency"
+  ) +
+  theme_minimal() +
+  theme(legend.position = "none")
+
+```
+
+
+```{r message=FALSE, warning=FALSE, error=FALSE}
+library(PerformanceAnalytics)
+library(dplyr)
+
+# 指定樣本大小
+selected_n <- 500
+
+# 資料過濾
+chart_data <- df_stat %>%
+  filter(n == selected_n) %>%
+  select(max_1, max_2, max_3, max_4)
+
+# 畫散佈矩陣圖（包含直方圖與相關係數）
+chart.Correlation(chart_data,
+                  histogram = TRUE,
+                  pch = 16,
+                  col = adjustcolor("gray30", alpha.f = 0.5),
+                  main = paste("Scatterplot Matrix of max_k (n =", selected_n, ")"))
+
+# 顯示協方差矩陣
+cat("The covariance matrix:\n")
+print(round(cov(chart_data), 6))
+
+
+```
+
+
+```{r}
+library(ggplot2)
+library(dplyr)
+
+# 設定參數
+selected_n <- 100
+xvar <- "max_3"
+yvar <- "max_4"
+
+# 整理資料
+plot_data <- df_stat %>%
+  filter(n == selected_n) %>%
+  select(all_of(c(xvar, yvar)))
+
+# 根據資料自動取範圍
+range_x <- range(plot_data[[xvar]], na.rm = TRUE)
+range_y <- range(plot_data[[yvar]], na.rm = TRUE)
+
+# 繪圖
+ggplot(plot_data, aes(x = .data[[xvar]], y = .data[[yvar]])) +
+  geom_point(alpha = 0.1, color = "gray50") +
+  geom_density_2d(color = "blue") +
+  geom_density_2d_filled(alpha = 0.4) +
+  coord_fixed(xlim = range_x, ylim = range_y) +  # ✅ 自動依據資料決定範圍
+  theme_minimal() +
+  labs(
+    title = paste("2D Density and Contour Plot:", xvar, "vs", yvar),
+    x = xvar,
+    y = yvar
+  )
+
+```
+```{r message=FALSE, warning=FALSE, error=FALSE}
+library(plotly)
+library(dplyr)
+
+# 指定 n
+selected_n <- 500
+
+# 選出 max_2 ~ max_4 的資料
+chart_data <- df_stat %>%
+  filter(n == selected_n) %>%
+  select(max_2, max_3, max_4)
+
+# 畫 3D 散佈圖
+plot_ly(chart_data, 
+        x = ~max_2, 
+        y = ~max_3, 
+        z = ~max_4,
+        type = "scatter3d", 
+        mode = "markers",
+        marker = list(size = 2, color = 'steelblue', opacity = 0.6)) %>%
+  layout(title = paste("3D Scatter Plot of max_2, max_3, max_4 (n =", selected_n, ")"),
+         scene = list(
+           xaxis = list(title = "max_2"),
+           yaxis = list(title = "max_3"),
+           zaxis = list(title = "max_4")
+         ))
+
+```
+
+
+
+### **3.3 樣本平均**
+
+- **Sample Mean**: \( \bar{X}_n \approx N\left( \frac{25}{8}, \, \frac{55}{64n} \right) \)
+
+
+```{r}
+df_stat %>%
+  ggplot(aes(x = max_mean)) +
+  geom_histogram(aes(y = after_stat(density)),
+                 bins = 30, fill = "steelblue", color = "white", alpha = 0.7) +
+  facet_wrap(~ n, ncol = 2) +
+  labs(title = "Histogram of Sample Means by n",
+       x = "max_mean", y = "Density") +
+  theme_minimal()
+
+shapiro_max_mean <- df_stat %>%
+  group_by(n) %>%
+  summarise(
+    p_value = tryCatch(shapiro.test(max_mean)$p.value, error = function(e) NA),
+    .groups = "drop"
+  ) %>%
+  mutate(
+    p_value = ifelse(p_value < 0.05,
+                     paste0(format(round(p_value, 4), nsmall = 4), "*"),
+                     format(round(p_value, 4), nsmall = 4))
+  )
+
+shapiro_max_mean
+```
+
+- **Weak Law of Large Numbers (WWLN)**:  
+
+
+```{r}
+library(ggplot2)
+library(dplyr)
+
+df_stat %>%
+  mutate(n = factor(n)) %>%
+  ggplot(aes(x = n, y = max_mean)) +
+  geom_boxplot(fill = "skyblue", alpha = 0.7, outlier.shape = NA) +  # 不顯示離群值點
+  geom_jitter(width = 0.2, alpha = 0.4, color = "gray30", size = 1) +  # 加上樣本點
+  geom_hline(yintercept = 25 / 8, linetype = "dashed", color = "red", linewidth = 0.8) +  # 真實期望值線
+  labs(
+    title = "Boxplot of Sample Mean by Sample Size with Sample Points",
+    x = "Sample Size (n)",
+    y = "Sample Mean (max_mean)"
+  ) +
+  theme_minimal()
+
+```
+
+- **Central Limit Theorem (CLT)** \(E(X)=\frac{25}{8}\) and \(Var(X)=\frac{55}{64}\)
+  
+  - Using the true variance: \( \frac{\sqrt{n}(\bar{X}_n - E(X))}{\sqrt{\text{Var}(X)}} \xrightarrow{d} N(0, 1) \)
+
+  - Using the sample variance: \( \frac{\sqrt{n}(\bar{X}_n - E(X))}{\sqrt{S^2_n}} \xrightarrow{d} N(0, 1) \)
+
+```{r}
+library(tidyverse)
+
+# 理論期望與變異數
+mean_theory <- 25 / 8       # 理論平均 = 3.125
+mean_theory <- 3.2       # 高估的
+var_theory  <- 55 / 64      # 理論變異數 ≈ 0.859375
+
+# 在 df_summary 中新增兩種標準化 Z 值
+df_summary <- df_stat %>%
+  select(n, max_mean, max_var, max_sd) %>%
+  mutate(
+    z_truevar = sqrt(n) * (max_mean - mean_theory) / sqrt(var_theory),  # 使用理論變異數
+    z_sample  = sqrt(n) * (max_mean - mean_theory) / sqrt(max_var)      # 使用樣本變異數
+  )
+
+df_summary %>%
+  pivot_longer(
+    cols = c(z_truevar, z_sample),
+    names_to = "method",
+    values_to = "value"
+  ) %>%
+  mutate(n = factor(n)) %>%
+  ggplot(aes(x = value)) +
+  geom_histogram(aes(y = after_stat(density), fill = method),
+                 bins = 30, alpha = 0.6, position = "identity", color = "white") +
+  stat_function(fun = dnorm, args = list(mean = 0, sd = 1),
+                color = "red", linetype = "dashed", linewidth = 0.8) +
+  facet_grid(rows = vars(n), cols = vars(method)) +
+  labs(
+    title = "Histogram of Standardized Z-scores (減到不合理的期望值)",
+    x = "Z-value", y = "Density", fill = "Method"
+  ) +
+  theme_minimal()
+
+
+```
+
+### **3.3 樣本變異數**
+
+
+- **Sample Variance**:  
+  \[
+  S_n^2 = \frac{1}{n - 1} \sum_{i = 1}^{n} (Y_i - \bar{Y}_n)^2
+  \]
+  - \( E(S_n^2) = \sigma^2 \)：an **unbiased estimator** of the population variance  
+  
+  - \(\text{Var}(S_n^2) = \frac{1}{n} (\kappa - 1 + \frac{2}{n-1}) \sigma^4 \), where \( \kappa \) is the **kurtosis** of the population distribution.
+  
+    - [wikipedia](https://en.wikipedia.org/wiki/Variance#Sample_variance), [math.stackexchange]( https://math.stackexchange.com/questions/72975/variance-of-sample-variance)
+    
+    - \(\text{Var}(S_n^2) \approx \frac{1}{n} (\kappa - 1) \sigma^4 \).
+  
+  - \( S_n^2 \) is a **consistent estimator** of the population variance \( \sigma^2 \); that is, \( S_n^2 \xrightarrow{p} \sigma^2 \) as \( n \to \infty \).
+  
+  - \( \sqrt{n}(S_n^2 - \sigma^2) \xrightarrow{d} N\left( 0, (\kappa - 1) \sigma^4 \right) \) (試著證看看，亦可用模擬驗證)
+  
+    - This together with \( \sqrt{(\kappa - 1)} S_n^2 \xrightarrow{p} (\kappa - 1) \sigma^2 \) yields 
+    \[
+    \frac{\sqrt{n}(S_n^2 - \sigma^2)}{\sqrt{\kappa - 1} S_n^2} \xrightarrow{d} N\left( 0, 1 \right) .
+    \]
+    
+  - For the **normal distribution**, we have:
+
+    - Kurtosis \( \kappa = 3 \), \(\text{Var}(S_n^2) = \frac{2 \sigma^4}{n - 1}\) and \(\frac{(n - 1) S_n^2}{\sigma^2} \sim \chi^2_{n - 1} \).
+
+- A **biased sample variance**:
+  \[
+  {S'}_n^2 = \frac{1}{n} \sum_{i = 1}^{n} (Y_i - \bar{Y}_n)^2
+  \]
+
+  - \(E({S'}_n^2) = \frac{n - 1}{n} \sigma^2 < \sigma^2 \)
+
+  - This estimator is **biased**, but **consistent** as \( n \to \infty \).
+
+```{r}
+library(ggplot2)
+library(dplyr)
+library(tidyr)
+
+# 指定 n 為變數
+n_val <- 50
+
+# 整理資料
+df_hist_n <- df_stat %>%
+  filter(n == n_val) %>%
+  mutate(adjusted_var = (n - 1) / n * max_var) %>%
+  select(max_var, adjusted_var) %>%
+  pivot_longer(cols = everything(), names_to = "type", values_to = "value") %>%
+  mutate(type = recode(type,
+                       max_var = "Sample Variance",
+                       adjusted_var = "MLE Variance"))
+
+# 加入 Shapiro-Wilk 正態性檢定的 p-value
+shapiro_labels <- df_hist_n %>%
+  group_by(type) %>%
+  summarise(
+    p_value = tryCatch(shapiro.test(value)$p.value, error = function(e) NA_real_),
+    .groups = "drop"
+  ) %>%
+  mutate(
+    label = paste0("Shapiro p = ", formatC(p_value, digits = 3, format = "f"))
+  )
+
+# 合併標籤回原資料
+df_hist_n <- df_hist_n %>%
+  left_join(shapiro_labels, by = "type")
+
+# 畫圖：加上常態密度 + p-value 標籤
+ggplot(df_hist_n, aes(x = value)) +
+  geom_histogram(aes(y = after_stat(density)),
+                 bins = 30, fill = "skyblue", color = "white", alpha = 0.7) +
+  stat_function(
+    fun = dnorm,
+    args = list(mean = mean(df_hist_n$value), sd = sd(df_hist_n$value)),
+    color = "blue", linetype = "dotted", linewidth = 1
+  ) +
+  geom_vline(xintercept = 55 / 64, color = "red", linetype = "dashed", linewidth = 0.8) +
+  facet_wrap(~ type + label, ncol = 1) +
+  labs(
+    x = "Value", y = "Density",
+    title = paste("Histogram of Variance Estimates (n =", n_val, ")")
+  ) +
+  theme_minimal()
+
+```
+
+- **Sample Standard Deviation**:  \( S_n = \sqrt{S_n^2} \)
+
+  - \( E(S_n) < \sigma \)：a **biased** estimator of \( \sigma \)
+
+  - For the normal distribution, an **unbiased estimator** of \( \sigma \) is given by:
+    \[
+    \hat{\sigma} = \frac{S_n}{c_4(n)}
+    \quad \text{where } c_4(n) = \sqrt{\frac{2}{n-1}} \cdot \frac{\Gamma(n/2)}{\Gamma((n-1)/2)}
+    \]
+
+  - See [Wikipedia: Unbiased estimation of standard deviation](https://en.wikipedia.org/wiki/Unbiased_estimation_of_standard_deviation) for details.
+
+
+```{r}
+library(ggplot2)
+library(dplyr)
+
+# 真實的標準差
+sd_theory <- sqrt(55 / 64)
+
+# 整理資料
+df_sd_plot <- df_stat %>%
+  select(n, max_sd) %>%
+  mutate(n = factor(n))  # 確保 n 為類別，用於 x 軸
+
+# 畫圖：boxplot + 點圖 + 理論標準差
+ggplot(df_sd_plot, aes(x = n, y = max_sd)) +
+  geom_boxplot(fill = "lightblue", outlier.shape = NA, width = 0.6) +
+  geom_jitter(width = 0.2, alpha = 0.1, color = "darkblue", size = 1) +
+  geom_hline(yintercept = sd_theory, color = "red", linetype = "dashed", linewidth = 0.8) +
+  labs(
+    title = expression("Sample Standard Deviation " ~ S[n] ~ " by Sample Size"),
+    x = "Sample Size (n)", y = expression(S[n])
+  ) +
+  theme_minimal()
+
+c4 <- function(n) {
+  sqrt(2 / (n - 1)) * gamma(n / 2) / gamma((n - 1) / 2)
+}
+
+# 定義 c4 函數
+c4 <- function(n) {
+  sqrt(2 / (n - 1)) * gamma(n / 2) / gamma((n - 1) / 2)
+}
+
+# 建立 n 與 c4 值的向量
+n_vals <- 20:1000
+c4_vals <- c4(n_vals)
+
+# 畫圖：使用 base R 的 plot
+plot(n_vals, c4_vals,
+     type = "l",       # 折線圖
+     col = "blue",
+     ylim = c(0.987, 1.0001),  # y 軸範圍
+     lwd = 2,
+     xlab = "n",
+     ylab = expression(c[4](n)),
+     main = expression(paste("Bias Correction Factor ", c[4](n), " vs n")))
+
+# 加上水平線 y = 1
+abline(h = 1, col = "red", lty = 2)
+
+```
+
+
+### **3.4 樣本平均與樣本變異數不獨立**
+
+```{r}
+library(ggplot2)
+library(dplyr)
+
+# 理論期望
+mean_theory <- 25 / 8     # = 3.125
+var_theory  <- 55 / 64    # = 0.859375
+
+# 統計摘要文字
+summary_labels <- df_stat %>%
+  group_by(n) %>%
+  summarise(
+    var_mean = var(max_mean),
+    var_var  = var(max_var),
+    corr     = cor(max_mean, max_var),
+    .groups = "drop"
+  ) %>%
+  mutate(
+    label = paste0(
+      "Var(mean) = ", round(var_mean, 4), "\n",
+      "Var(var)  = ", round(var_var, 4), "\n",
+      "Corr      = ", round(corr, 4)
+    ),
+    n = factor(n)
+  )
+
+# 合併資料
+df_with_label <- df_stat %>%
+  mutate(n = factor(n)) %>%
+  left_join(summary_labels, by = "n")
+
+# 畫圖：無等高線版本
+ggplot(df_with_label, aes(x = max_mean, y = max_var)) +
+  geom_point(alpha = 0.3, color = "steelblue", size = 1) +
+  geom_vline(xintercept = mean_theory, color = "red", linetype = "dashed") +
+  geom_hline(yintercept = var_theory, color = "red", linetype = "dashed") +
+  geom_text(data = summary_labels,
+            aes(x = -Inf, y = Inf, label = label),
+            hjust = -0.1, vjust = 1.1,
+            inherit.aes = FALSE,
+            size = 3.5, color = "black") +
+  facet_wrap(~ n) +
+  labs(
+    title = "Scatter Plot of Sample Mean vs. Variance by Sample Size",
+    x = expression(bar(X)[n]),
+    y = expression(S[n]^2)
+  ) +
+  theme_minimal()
+
+```
+
+
+- https://chatgpt.com/canvas/shared/67ea3d706d4081919bf5129e7e6aa708
+
+**問題思考**: 若骰子不公平，那麼:
+
+  - \( P(X = k) \) 會是什麼樣的分佈呢？期望值、變異數又會是什麼樣的數值呢？
+  
+  - 除了手算外，你還可以怎麼算？
